@@ -19,8 +19,19 @@ function createMyBot() {
     version: '1.20.1'
   });
 
+  let jumpInterval = null;
+
   bot.on('spawn', () => {
     console.log('=> Bot [hehechilabotthui] đã vào game thành công!');
+
+    // Nhảy mỗi 3 giây (3000 ms)
+    jumpInterval = setInterval(() => {
+      bot.setControlState('jump', true);
+      // Tắt phím nhảy sau 100 miligiây để bot đáp đất tự nhiên
+      setTimeout(() => {
+        bot.setControlState('jump', false);
+      }, 100);
+    }, 3000); 
   });
 
   bot.on('error', (err) => {
@@ -32,6 +43,9 @@ function createMyBot() {
   });
 
   bot.on('end', () => {
+    // Dọn dẹp bộ đếm giờ khi bot ngắt kết nối để tránh trùng lặp loop
+    if (jumpInterval) clearInterval(jumpInterval);
+
     console.log('=> Bot đã ngắt kết nối khỏi server. Đang thử kết nối lại sau 10 giây...');
     setTimeout(createMyBot, 10000);
   });
