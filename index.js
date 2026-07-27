@@ -1,11 +1,3 @@
-const express = require('express');
-const app = express();
-
-app.get('/', (req, res) => {
-  res.send('Bot Mineflayer dang chay 24/7!');
-});
-
-// Bắt buộc sử dụng process.env.PORT để Render tự cấp cổng
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server HTTP dang chay tren cong ${PORT}`);
