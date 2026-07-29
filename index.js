@@ -1,54 +1,103 @@
-const express = require('express');
-const app = express();
-const mineflayer = require('mineflayer');
+const mineflayer = require('mineflayer')
 
-app.get('/', (req, res) => {
-  res.send('Bot Mineflayer is active!');
-});
+// ====== CẤU HÌNH TÙY CHỈNH ======
+const config = {
+  host: 'vhoanghehe.aternos.me',
+  port: 22693,
+  username: 'BotCuaToi',
+  version: '1.20.1',
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server HTTP dang chay tren cong ${PORT}`);
-});
+  jumpDelay: 3000,
+  chatDelay: 1500000,
+  reconnectDelay: 5000,
+  chatMessages: [
+    'dái bé',
+    'botdz',
+    'saygex69'
+  ],
+  randomOrder: false
+}
+// =================================
 
-function createMyBot() {
-  const bot = mineflayer.createBot({
-    host: 'vhoanghehe.aternos.me',
-    port: 22693,
-    username: 'hehechilabotthui',
-    version: '1.20.1'
-  });
-
-  let jumpInterval = null;
-
-  bot.on('spawn', () => {
-    console.log('=> Bot [hehechilabotthui] đã vào game thành công!');
-
-    // Nhảy mỗi 3 giây (3000 ms)
-    jumpInterval = setInterval(() => {
-      bot.setControlState('jump', true);
-      // Tắt phím nhảy sau 100 miligiây để bot đáp đất tự nhiên
-      setTimeout(() => {
-        bot.setControlState('jump', false);
-      }, 100);
-    }, 3000); 
-  });
-
-  bot.on('error', (err) => {
-    console.log('=> Lỗi Bot gặp phải:', err.message);
-  });
-
-  bot.on('kicked', (reason) => {
-    console.log('=> Bot bị ngắt kết nối/kick với lý do:', reason);
-  });
-
-  bot.on('end', () => {
-    // Dọn dẹp bộ đếm giờ khi bot ngắt kết nối để tránh trùng lặp loop
-    if (jumpInterval) clearInterval(jumpInterval);
-
-    console.log('=> Bot đã ngắt kết nối khỏi server. Đang thử kết nối lại sau 10 giây...');
-    setTimeout(createMyBot, 10000);
-  });
+function log(tag, msg) {
+  const time = new Date().toLocaleTimeString('vi-VN', { hour12: false })
+  console.log(`[${time}] [${tag}] ${msg}`)
 }
 
-createMyBot();
+let jumpInterval = null
+let chatInterval = null
+
+function createBot() {
+  const bot = mineflayer.createBot({
+    host: config.host,
+    port: config.port,
+    username: config.username,
+    version: config.version
+  })
+
+  bot.on('spawn', () => {
+    log('SYSTEM', 'Bot đã vào server!')
+
+    // Dọn dẹp interval cũ (nếu có)
+    if (jumpInterval) clearInterval(jumpInterval)
+    if (chatInterval) clearInterval(chatInterval)
+
+    // ===== TỰ ĐỘNG NHẢY =====
+    jumpInterval = setInterval(() => {
+      bot.setControlState('jump', true)
+      setTimeout(() => bot.setControlState('jump', false), 200)
+    }, config.jumpDelay)
+
+    // ===== TỰ ĐỘNG CHAT =====
+    let i = 0
+    chatInterval = setInterval(() => {
+      if (config.chatMessages.length === 0) return
+
+      const msg = config.randomOrder
+        ? config.chatMessages[Math.floor(Math.random() * config.chatMessages.length)]
+        : config.chatMessages[i]
+
+      bot.chat(msg)
+      log('BOT', msg)
+
+      if (!config.randomOrder) {
+        i = (i + 1) % config.chatMessages.length
+      }
+    }, config.chatDelay)
+
+    // ===== ĐĂNG KÝ EVENT CHAT/MESSAGE CHỈ SAU KHIN BOT VÀO SERVER =====
+    bot.on('chat', (username, message) => {
+      if (username === bot.username) return
+      log('CHAT', `${username}: ${message}`)
+
+      if (message === 'hi') {
+        bot.chat(`Chào ${username}!`)
+        log('BOT', `Chào ${username}!`)
+      }
+    })
+
+    bot.on('message', (jsonMsg) => {
+      const text = jsonMsg.toString().trim()
+      // Bỏ qua tin nhắn trống hoặc tin nhắn chat thông thường (vì đã log ở event 'chat')
+      if (!text || text.includes('<') && text.includes('>')) return
+      log('SERVER', text)
+    })
+
+    bot.on('playerJoined', (player) => log('JOIN', player.username))
+    bot.on('playerLeft', (player) => log('LEFT', player.username))
+  })
+
+  // ===== SỰ KIỆN HỆ THỐNG =====
+  bot.on('death', () => log('BOT', 'Bot đã chết!'))
+  bot.on('error', (err) => log('ERROR', err.message))
+
+  bot.on('end', () => {
+    log('SYSTEM', `Ngắt kết nối. Thử lại sau ${config.reconnectDelay / 1000}s...`)
+    if (jumpInterval) clearInterval(jumpInterval)
+    if (chatInterval) clearInterval(chatInterval)
+    setTimeout(createBot, config.reconnectDelay)
+  })
+}
+
+// Khởi chạy bot
+createBot()
